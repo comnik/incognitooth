@@ -32,14 +32,10 @@ public class MainActivity extends Activity {
     private static final String TAG = "Incognitooth";
     private static final boolean D = true;
 
-    // A list of messages to distribute
-    public List<String> messages = new ArrayList<String>();
-
-    // A list of peer MAC addresses
-    public List<String> peers = new ArrayList<String>();
-
     // Name of the connected device
-    private String mConnectedDeviceName = null;
+    private String mConnectedDeviceAddress;
+    private String mConnectedDeviceName;
+
     // Array adapter for the conversation thread
     private ArrayAdapter<String> mConversationArrayAdapter;
     // String buffer for outgoing messages
@@ -47,11 +43,11 @@ public class MainActivity extends Activity {
     // Local Bluetooth adapter
     private BluetoothAdapter mBluetoothAdapter = null;
     private BluetoothService mBTService = null;
+    private PacketStore pstore;
 
-    // Layout Views
-    private ListView mConversationView;
-    private EditText mOutEditText;
-    private Button mSendButton;
+    // Key names received from the BluetoothChatService Handler
+    public static final String DEVICE_ADDRESS = "device_address";
+    public static final String DEVICE_NAME = "device_name";
 
     // Intent request codes
     private static final int REQUEST_CONNECT_DEVICE_SECURE = 1;
@@ -80,6 +76,10 @@ public class MainActivity extends Activity {
                 android.R.layout.simple_list_item_1, myStringArray);
         ListView listV = (ListView) findViewById(R.id.listView);
         listV.setAdapter(adapter);
+
+        pstore = new PacketStore(getSharedPreferences("PACKETS", 0));
+        pstore.packets.add(new Packet("phipp", "This is fun."));
+        pstore.packets.add(new Packet("etienned", "Hi!"));
 
         // Get local Bluetooth adapter
         mBluetoothAdapter = BluetoothAdapter.getDefaultAdapter();
@@ -127,6 +127,7 @@ public class MainActivity extends Activity {
 
     private void setupRelay() {
         // Initialize the BluetoothChatService to perform bluetooth connections
+        ensureDiscoverable();
         mBTService = new BluetoothService(this, mHandler);
         relay();
     }
@@ -165,10 +166,9 @@ public class MainActivity extends Activity {
 
     private void ensureDiscoverable() {
         if(D) Log.d(TAG, "ensure discoverable");
-        if (mBluetoothAdapter.getScanMode() !=
-                BluetoothAdapter.SCAN_MODE_CONNECTABLE_DISCOVERABLE) {
+        if (mBluetoothAdapter.getScanMode() != BluetoothAdapter.SCAN_MODE_CONNECTABLE_DISCOVERABLE) {
             Intent discoverableIntent = new Intent(BluetoothAdapter.ACTION_REQUEST_DISCOVERABLE);
-            discoverableIntent.putExtra(BluetoothAdapter.EXTRA_DISCOVERABLE_DURATION, 300);
+            discoverableIntent.putExtra(BluetoothAdapter.EXTRA_DISCOVERABLE_DURATION, 0); // 0 = ALL the time
             startActivity(discoverableIntent);
         }
     }
@@ -233,7 +233,6 @@ public class MainActivity extends Activity {
                 Log.d("[PEERING]", "Found new peer "+device.getName());
                 if (device.getBluetoothClass().getDeviceClass() == BluetoothClass.Device.PHONE_SMART) {
                     Log.d("[PEERING]", "Found a smartphone. Initiating connection.");
-
                     mBTService.connect(device);
                 }
             }
@@ -255,7 +254,22 @@ public class MainActivity extends Activity {
                     switch (msg.arg1) {
                         case BluetoothService.STATE_CONNECTED:
                             setStatus("Connected to: " + mConnectedDeviceName);
-                            sendMsg("Fuck yeah it works.");
+
+                            // Send everything we have
+                            Packet p;
+                            for (int i=0; i < pstore.packets.size(); i++) {
+                                p = pstore.packets.peek();
+
+                                // Only send to this device if we haven't sent
+                                // the same message before
+                                if (!p.deliveredTo.contains(mConnectedDeviceAddress)) {
+                                    sendMsg(p.getPayload());
+                                    p.deliveredTo.add(mConnectedDeviceAddress);
+                                }
+                            }
+
+                            // [TODO] Disconnect
+
                             break;
                         case BluetoothService.STATE_CONNECTING:
                             setStatus("Connecting...");
@@ -278,11 +292,11 @@ public class MainActivity extends Activity {
                     String readMessage = new String(readBuf, 0, msg.arg1);
                     Toast.makeText(getApplicationContext(), readMessage, Toast.LENGTH_LONG).show();
                     break;
-                /*case MESSAGE_DEVICE_NAME:
-                    // save the connected device's name
+                case MESSAGE_DEVICE_NAME:
+                    // save information about the connected device
+                    Bundle msgData = msg.getData();
+                    mConnectedDeviceAddress = msgData.getString(DEVICE_ADDRESS);
                     mConnectedDeviceName = msg.getData().getString(DEVICE_NAME);
-                    Toast.makeText(getApplicationContext(), "Connected to "
-                            + mConnectedDeviceName, Toast.LENGTH_SHORT).show();
                     break;
                 /*case MESSAGE_TOAST:
                     Toast.makeText(getApplicationContext(), msg.getData().getString(TOAST),
