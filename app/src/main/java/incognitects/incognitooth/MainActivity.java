@@ -169,6 +169,8 @@ public class MainActivity extends Activity {
         boolean success = this.mBluetoothAdapter.startDiscovery();
         if (!success) {
             Toast.makeText(getApplicationContext(), "Could not start Discovery.", Toast.LENGTH_LONG).show();
+        } else {
+            Toast.makeText(getApplicationContext(), "Started peering.", Toast.LENGTH_SHORT).show();
         }
     }
 
@@ -181,9 +183,9 @@ public class MainActivity extends Activity {
             if (BluetoothDevice.ACTION_FOUND.equals(action)) {
                 // Get the BluetoothDevice object from the Intent
                 BluetoothDevice device = intent.getParcelableExtra(BluetoothDevice.EXTRA_DEVICE);
+                Log.d("[PEERING]", "Found new peer "+device.getName());
                 if (device.getBluetoothClass().getDeviceClass() == BluetoothClass.Device.PHONE_SMART) {
-                    Log.e("[PEERING]", "Found new peer "+device.getName());
-                    Log.e("[PEERING]", "That bad boy has device class "+device.getBluetoothClass().getDeviceClass());
+                    Log.d("[PEERING]", "Found a smartphone. Initiating connection.");
 
                     mBTService.connect(device);
 
