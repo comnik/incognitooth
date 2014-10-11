@@ -18,11 +18,41 @@
 
     <ListView
         android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
+        android:layout_height="200dp"
         android:id="@+id/listView"
+        android:layout_marginTop="47dp"
         android:layout_below="@+id/recipientsListTextView"
-        android:layout_centerHorizontal="true"
-        android:layout_marginTop="78dp" />
+        android:layout_toStartOf="@+id/textViewNumChar"
+        android:layout_alignRight="@+id/textViewNumChar"
+        android:layout_alignEnd="@+id/textViewNumChar" />
+
+    <EditText
+        android:layout_width="fill_parent"
+        android:layout_height="200dp"
+        android:id="@+id/editTextMsg"
+        android:layout_below="@+id/listView"
+        android:layout_alignLeft="@+id/listView"
+        android:layout_alignStart="@+id/listView"
+        android:layout_toLeftOf="@+id/textViewNumChar"
+        android:layout_toStartOf="@+id/textViewNumChar" />
+
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="0"
+        android:id="@+id/textViewNumChar"
+        android:maxLength="10"
+        android:layout_below="@+id/listView"
+        android:layout_alignParentRight="true"
+        android:layout_alignParentEnd="true" />
+
+    <Button
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="send"
+        android:id="@+id/buttonSend"
+        android:layout_below="@+id/editTextMsg"
+        android:layout_centerHorizontal="true" />
 
 
 </RelativeLayout>
