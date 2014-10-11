@@ -116,6 +116,7 @@ public class MainActivity extends Activity {
 
     private void setupRelay() {
         // Initialize the BluetoothChatService to perform bluetooth connections
+        ensureDiscoverable();
         mBTService = new BluetoothService(this, mHandler);
         relay();
     }
