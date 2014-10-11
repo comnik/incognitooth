@@ -115,7 +115,7 @@ public class BluetoothService {
      * @param device  The BluetoothDevice to connect
      */
     public synchronized void connect(BluetoothDevice device) {
-        if (D) Log.d(TAG, "connect to: " + device);
+        if (D) Log.d(TAG, "Connecting to " + device.getName());
 
         // Cancel any thread attempting to make a connection
         if (mState == STATE_CONNECTING) {
@@ -130,6 +130,10 @@ public class BluetoothService {
         mConnectThread.start();
         setState(STATE_CONNECTING);
     }
+
+    /*public synchronized  void disconnect(BluetoothService device) {
+        mConnectedThread.stop();
+    }*/
 
     /**
      * Start the ConnectedThread to begin managing a Bluetooth connection

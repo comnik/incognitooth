@@ -1,6 +1,7 @@
 package incognitects.incognitooth;
 
 import android.app.Activity;
+import android.bluetooth.BluetoothClass;
 import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
@@ -180,13 +181,16 @@ public class MainActivity extends Activity {
             if (BluetoothDevice.ACTION_FOUND.equals(action)) {
                 // Get the BluetoothDevice object from the Intent
                 BluetoothDevice device = intent.getParcelableExtra(BluetoothDevice.EXTRA_DEVICE);
-                Log.e("[Peering]", "Found new peer "+device.getAddress());
+                if (device.getBluetoothClass().getDeviceClass() == BluetoothClass.Device.PHONE_SMART) {
+                    Log.e("[PEERING]", "Found new peer "+device.getName());
+                    Log.e("[PEERING]", "That bad boy has device class "+device.getBluetoothClass().getDeviceClass());
 
-                mBTService.connect(device);
+                    mBTService.connect(device);
 
-                String msg = "Fuck yeah it works.";
-                byte[] send = msg.getBytes();
-                mBTService.write(send);
+                    String msg = "Fuck yeah it works.";
+                    byte[] send = msg.getBytes();
+                    mBTService.write(send);
+                }
             }
         }
     };
@@ -206,7 +210,7 @@ public class MainActivity extends Activity {
                     byte[] readBuf = (byte[]) msg.obj;
                     // construct a string from the valid bytes in the buffer
                     String readMessage = new String(readBuf, 0, msg.arg1);
-                    Toast.makeText(getApplicationContext(), readMessage, Toast.LENGTH_LONG);
+                    Toast.makeText(getApplicationContext(), readMessage, Toast.LENGTH_LONG).show();
                     break;
                 /*case MESSAGE_DEVICE_NAME:
                     // save the connected device's name
