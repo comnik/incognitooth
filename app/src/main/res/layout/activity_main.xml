@@ -9,8 +9,20 @@
     tools:context=".MainActivity">
 
     <TextView
-        android:text="@string/hello_world"
         android:layout_width="wrap_content"
-        android:layout_height="wrap_content" />
+        android:layout_height="wrap_content"
+        android:text="recipients list"
+        android:id="@+id/recipientsListTextView"
+        android:layout_alignParentTop="true"
+        android:layout_centerHorizontal="true" />
+
+    <ListView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:id="@+id/listView"
+        android:layout_below="@+id/recipientsListTextView"
+        android:layout_centerHorizontal="true"
+        android:layout_marginTop="78dp" />
+
 
 </RelativeLayout>

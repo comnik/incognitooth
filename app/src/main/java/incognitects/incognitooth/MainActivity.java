@@ -65,10 +65,21 @@ public class MainActivity extends Activity {
     public static final int MESSAGE_DEVICE_NAME = 4;
     public static final int MESSAGE_TOAST = 5;
 
+   public  TextView tv;
+
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
+        tv = (TextView) findViewById(R.id.recipientsListTextView);
+        tv.setText("Select recipient");
+
+        String[] myStringArray = {"entry1","entry2","entry3"};
+        ArrayAdapter<String> adapter = new ArrayAdapter<String>(this,
+                android.R.layout.simple_list_item_1, myStringArray);
+        ListView listV = (ListView) findViewById(R.id.listView);
+        listV.setAdapter(adapter);
 
         // Get local Bluetooth adapter
         mBluetoothAdapter = BluetoothAdapter.getDefaultAdapter();
