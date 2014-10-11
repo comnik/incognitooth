@@ -129,7 +129,7 @@ public class MainActivity extends Activity {
         buttonSend.setOnClickListener(new View.OnClickListener() {
             public void onClick(View v) {
                 // Perform action on click
-                PacketStore.add(new Packet(selectedRecipient, editTextMsg.getText().toString()));
+                pstore.add(new Packet(selectedRecipient, editTextMsg.getText().toString()));
             }
         });
 
@@ -166,8 +166,6 @@ public class MainActivity extends Activity {
         registerReceiver(mReceiver, filter);
     }
 
-
-
     @Override
     public void onStart() {
         super.onStart();
@@ -188,6 +186,8 @@ public class MainActivity extends Activity {
         super.onResume();
         if(D) Log.e(TAG, "+ ON RESUME +");
 
+        pstore.load();
+
         // Performing this check in onResume() covers the case in which BT was
         // not enabled during onStart(), so we were paused to enable it...
         // onResume() will be called when ACTION_REQUEST_ENABLE activity returns.
@@ -205,6 +205,12 @@ public class MainActivity extends Activity {
         ensureDiscoverable();
         mBTService = new BluetoothService(this, mHandler);
         relay();
+    }
+
+    @Override
+    public void onPause() {
+        super.onPause();
+        pstore.store();
     }
 
     @Override

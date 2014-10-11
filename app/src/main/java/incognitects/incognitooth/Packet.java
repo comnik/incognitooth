@@ -1,9 +1,10 @@
 package incognitects.incognitooth;
 
+import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.List;
 
-public class Packet {
+public class Packet implements Serializable {
 
     private final String recipient;
     private String payload;

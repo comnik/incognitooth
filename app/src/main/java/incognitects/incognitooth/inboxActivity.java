@@ -1,7 +1,9 @@
 package incognitects.incognitooth;
 
 import android.app.Activity;
+import android.content.SharedPreferences;
 import android.os.Bundle;
+import android.util.Log;
 import android.view.Menu;
 import android.view.MenuItem;
 import android.widget.ArrayAdapter;
@@ -19,7 +21,10 @@ public class inboxActivity extends Activity {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_inbox);
 
-        pstore = new PacketStore(getSharedPreferences("PACKETS", 0));
+        SharedPreferences keyStore = getSharedPreferences("KEYSTORE", 0);
+        EncryptUtil encryptUtil = new EncryptUtil(keyStore);
+
+        pstore = new PacketStore(getSharedPreferences("PACKETS", 0), encryptUtil);
 
         messageAdapter = new ArrayAdapter<String>(this, android.R.layout.simple_list_item_1);
 
@@ -29,6 +34,12 @@ public class inboxActivity extends Activity {
 
     @Override
     public void onStart() {
+        super.onStart();
+
+        pstore.load();
+
+        Log.d("Inbox", "Packet count: "+pstore.packets.size());
+
         messageAdapter.clear();
         for (Packet p : pstore.packets) {
             messageAdapter.add(p.getPayload());
