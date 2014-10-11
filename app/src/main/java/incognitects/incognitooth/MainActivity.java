@@ -1,5 +1,6 @@
 package incognitects.incognitooth;
 
+import android.app.ActionBar;
 import android.app.Activity;
 import android.bluetooth.BluetoothClass;
 import android.content.BroadcastReceiver;
@@ -96,6 +97,23 @@ public class MainActivity extends Activity {
         }
     }
 
+    @Override
+    public void onResume() {
+        super.onResume();
+        if(D) Log.e(TAG, "+ ON RESUME +");
+
+        // Performing this check in onResume() covers the case in which BT was
+        // not enabled during onStart(), so we were paused to enable it...
+        // onResume() will be called when ACTION_REQUEST_ENABLE activity returns.
+        if (mBTService != null) {
+            // Only if the state is STATE_NONE, do we know that we haven't started already
+            if (mBTService.getState() == BluetoothService.STATE_NONE) {
+                // Start the Bluetooth chat services
+                mBTService.start();
+            }
+        }
+    }
+
     private void setupRelay() {
         // Initialize the BluetoothChatService to perform bluetooth connections
         mBTService = new BluetoothService(this, mHandler);
@@ -111,8 +129,10 @@ public class MainActivity extends Activity {
     @Override
     public void onDestroy() {
         super.onDestroy();
-        // Stop the Bluetooth chat services
         if(D) Log.e(TAG, "--- ON DESTROY ---");
+
+        // Stop the Bluetooth chat services
+        if (mBTService != null) mBTService.stop();
         unregisterReceiver(mReceiver);
     }
 
@@ -161,8 +181,24 @@ public class MainActivity extends Activity {
         return super.onOptionsItemSelected(item);
     }
 
-    public void sendMsg(String msg) {
-        this.messages.add(msg);
+    private void sendMsg(String message) {
+        // Check that we're actually connected before trying anything
+        if (mBTService.getState() != BluetoothService.STATE_CONNECTED) {
+            Toast.makeText(this, "Not connected!", Toast.LENGTH_SHORT).show();
+            return;
+        }
+
+        // Check that there's actually something to send
+        if (message.length() > 0) {
+            Toast.makeText(getApplicationContext(), "Sending msg "+message+".", Toast.LENGTH_SHORT).show();
+            // Get the message bytes and tell the BluetoothChatService to write
+            byte[] send = message.getBytes();
+            mBTService.write(send);
+
+            // Reset out string buffer to zero and clear the edit text field
+            //mOutStringBuffer.setLength(0);
+            //mOutEditText.setText(mOutStringBuffer);
+        }
     }
 
     public void relay() {
@@ -188,20 +224,37 @@ public class MainActivity extends Activity {
                     Log.d("[PEERING]", "Found a smartphone. Initiating connection.");
 
                     mBTService.connect(device);
-
-                    String msg = "Fuck yeah it works.";
-                    byte[] send = msg.getBytes();
-                    mBTService.write(send);
                 }
             }
         }
     };
 
-    // The Handler that gets information back from the BluetoothChatService
+    private final void setStatus(CharSequence subTitle) {
+        final ActionBar actionBar = getActionBar();
+        actionBar.setSubtitle(subTitle);
+    }
+
+    // The Handler that gets information back from the BluetoothService
     private final Handler mHandler = new Handler() {
         @Override
         public void handleMessage(Message msg) {
             switch (msg.what) {
+                case MESSAGE_STATE_CHANGE:
+                    if(D) Log.i(TAG, "MESSAGE_STATE_CHANGE: " + msg.arg1);
+                    switch (msg.arg1) {
+                        case BluetoothService.STATE_CONNECTED:
+                            setStatus("Connected to: " + mConnectedDeviceName);
+                            sendMsg("Fuck yeah it works.");
+                            break;
+                        case BluetoothService.STATE_CONNECTING:
+                            setStatus("Connecting...");
+                            break;
+                        case BluetoothService.STATE_LISTEN:
+                        case BluetoothService.STATE_NONE:
+                            setStatus("Not connected!");
+                            break;
+                    }
+                    break;
                 /*case MESSAGE_WRITE:
                     byte[] writeBuf = (byte[]) msg.obj;
                     // construct a string from the buffer

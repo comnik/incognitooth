@@ -39,7 +39,7 @@ import android.util.Log;
  */
 public class BluetoothService {
     // Debugging
-    private static final String TAG = "BluetoothChatService";
+    private static final String TAG = "[BLUETOOTH SERVICE]";
     private static final boolean D = true;
 
     // Name for the SDP record when creating server socket
@@ -81,6 +81,9 @@ public class BluetoothService {
     private synchronized void setState(int state) {
         if (D) Log.d(TAG, "setState() " + mState + " -> " + state);
         mState = state;
+
+        // Give the new state to the Handler so the UI Activity can update
+        mHandler.obtainMessage(MainActivity.MESSAGE_STATE_CHANGE, state, -1).sendToTarget();
     }
 
     /**
@@ -93,7 +96,7 @@ public class BluetoothService {
      * Start the chat service. Specifically start AcceptThread to begin a
      * session in listening (server) mode. Called by the Activity onResume() */
     public synchronized void start() {
-        if (D) Log.d(TAG, "start");
+        if (D) Log.d(TAG, "Starting Service...");
 
         // Cancel any thread attempting to make a connection
         if (mConnectThread != null) {mConnectThread.cancel(); mConnectThread = null;}
@@ -130,10 +133,6 @@ public class BluetoothService {
         mConnectThread.start();
         setState(STATE_CONNECTING);
     }
-
-    /*public synchronized  void disconnect(BluetoothService device) {
-        mConnectedThread.stop();
-    }*/
 
     /**
      * Start the ConnectedThread to begin managing a Bluetooth connection
@@ -244,7 +243,7 @@ public class BluetoothService {
         }
 
         public void run() {
-            if (D) Log.d(TAG, "Socket Type: " + mSocketType + "BEGIN mAcceptThread" + this);
+            if (D) Log.d(TAG, "Begin listening channel.");
             setName("AcceptThread" + mSocketType);
 
             BluetoothSocket socket = null;
@@ -260,15 +259,15 @@ public class BluetoothService {
                     break;
                 }
 
-                // If a connection was accepted
                 if (socket != null) {
+                    Log.d(TAG, "Connection accepted!");
+
                     synchronized (BluetoothService.this) {
                         switch (mState) {
                             case STATE_LISTEN:
                             case STATE_CONNECTING:
                                 // Situation normal. Start the connected thread.
-                                connected(socket, socket.getRemoteDevice(),
-                                        mSocketType);
+                                connected(socket, socket.getRemoteDevice(), mSocketType);
                                 break;
                             case STATE_NONE:
                             case STATE_CONNECTED:
