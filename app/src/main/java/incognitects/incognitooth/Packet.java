@@ -6,9 +6,22 @@ import java.util.List;
 public class Packet {
 
     private final String recipient;
-    private final String payload;
+    private String payload;
 
     public List<String> deliveredTo = new ArrayList<String>();
+
+    public static Packet deSerialize(String msg) {
+        String parsedData[] = msg.split("#");
+        Packet parsedPacket = null;
+
+        try {
+            parsedPacket = new Packet(parsedData[0], parsedData[1]);
+        } catch (Exception ex) {
+            //
+        }
+
+        return parsedPacket;
+    }
 
     // Recipient - Public Key of the intended recipient
     // Payload - Some kind of message
@@ -17,7 +30,16 @@ public class Packet {
         this.payload = payload;
     }
 
+    public String getRecipient() {
+        return this.recipient;
+    }
+
+    public void setPayload(String newPayload) { this.payload = newPayload; }
     public String getPayload() {
         return this.payload;
+    }
+
+    public String serialize() {
+        return this.recipient+"#"+this.getPayload();
     }
 }

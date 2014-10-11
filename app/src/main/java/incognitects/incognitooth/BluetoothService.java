@@ -195,8 +195,6 @@ public class BluetoothService {
 
     /**
      * Write to the ConnectedThread in an unsynchronized manner
-     * @param out The bytes to write
-     * @see ConnectedThread#write(byte[])
      */
     public void write(byte[] out) {
         Log.d("[SERVICE]", "Writing to peer...");
@@ -430,6 +428,9 @@ public class BluetoothService {
         public void write(byte[] buffer) {
             try {
                 mmOutStream.write(buffer);
+
+                // Share the sent message back to the UI Activity
+                mHandler.obtainMessage(MainActivity.MESSAGE_WRITE, -1, -1, buffer).sendToTarget();
             } catch (IOException e) {
                 Log.e(TAG, "Exception during write", e);
             }
