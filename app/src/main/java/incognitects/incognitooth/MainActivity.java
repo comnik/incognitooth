@@ -63,10 +63,13 @@ public class MainActivity extends Activity {
     public static final int MESSAGE_TOAST = 5;
     public static final int MAX_MESSAGE_SIZE = 117;         //Max number of bytes that can be entered as a message
 
-   public  TextView tv;
+    public TextView tv;
     public TextView tvNumChar;
     public EditText editTextMsg;
+    public Button buttonSend;
+    private Button openInbox;
 
+    private String selectedRecipient;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -99,15 +102,39 @@ public class MainActivity extends Activity {
         String[] myStringArray = {"entry1","entry2","entry3"};
         ArrayAdapter<String> adapter = new ArrayAdapter<String>(this,
                 android.R.layout.simple_list_item_1, myStringArray);
+
         ListView listV = (ListView) findViewById(R.id.listView);
         listV.setAdapter(adapter);
         listV.setItemsCanFocus(true);
         ViewGroup.LayoutParams lp = (ViewGroup.LayoutParams) listV.getLayoutParams();
         lp.height = 300;
         listV.setLayoutParams(lp);
+        listV.setOnItemClickListener(new android.widget.AdapterView.OnItemClickListener() {
 
+        public void onItemClick(android.widget.AdapterView<?> parentAdapter, View view, int position,
+                                    long id) {
+                // We know the View is a TextView so we can cast it
+                TextView clickedView = (TextView) view;
+                selectedRecipient = clickedView.getText().toString();
+                //...... if entry of list has been clicked do sth with clickedView here
+            }
+        });
 
+        buttonSend = (Button) findViewById(R.id.buttonSend);
+        buttonSend.setOnClickListener(new View.OnClickListener() {
+            public void onClick(View v) {
+                // Perform action on click
+                PacketStore.add(new Packet(selectedRecipient, editTextMsg.getText().toString()));
+            }
+        });
 
+        openInbox = (Button) findViewById(R.id.openInbox);
+        openInbox.setOnClickListener(new View.OnClickListener() {
+            public void onClick(View v) {
+                Intent i = new Intent(getApplicationContext(), inboxActivity.class);
+                startActivity(i);
+            }
+        });
 
         pstore = new PacketStore(getSharedPreferences("PACKETS", 0));
         pstore.packets.add(new Packet("phipp", "This is fun."));
