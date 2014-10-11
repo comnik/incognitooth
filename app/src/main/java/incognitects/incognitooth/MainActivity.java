@@ -7,6 +7,7 @@ import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
+import android.content.SharedPreferences;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Message;
@@ -25,13 +26,17 @@ import android.widget.TextView;
 import android.widget.Toast;
 
 import java.util.ArrayList;
+import java.util.LinkedList;
 import java.util.List;
+import java.util.Queue;
 
 
 public class MainActivity extends Activity {
     // Debugging
     private static final String TAG = "Incognitooth";
     private static final boolean D = true;
+
+    private Queue<BluetoothDevice> peers = new LinkedList<BluetoothDevice>();
 
     // Name of the connected device
     private String mConnectedDeviceAddress;
@@ -136,9 +141,16 @@ public class MainActivity extends Activity {
             }
         });
 
-        pstore = new PacketStore(getSharedPreferences("PACKETS", 0));
-        pstore.packets.add(new Packet("phipp", "This is fun."));
-        pstore.packets.add(new Packet("etienned", "Hi!"));
+        SharedPreferences keyStore = getSharedPreferences("KEYSTORE", 0);
+        EncryptUtil encryptUtil = new EncryptUtil(keyStore);
+
+        if(!keyStore.contains(EncryptUtil.PRIVATE_KEY) || !keyStore.contains(EncryptUtil.PUBLIC_KEY)) {
+            encryptUtil.generateKey();
+        }
+
+        pstore = new PacketStore(getSharedPreferences("PACKETS", 0), encryptUtil);
+        pstore.add(new Packet("phipp", "This is fun."));
+        pstore.add(new Packet("etienned", "Hi!"));
 
         // Get local Bluetooth adapter
         mBluetoothAdapter = BluetoothAdapter.getDefaultAdapter();
@@ -148,7 +160,9 @@ public class MainActivity extends Activity {
             return;
         }
 
-        IntentFilter filter = new IntentFilter(BluetoothDevice.ACTION_FOUND);
+        IntentFilter filter = new IntentFilter();
+        filter.addAction(BluetoothDevice.ACTION_FOUND);
+        filter.addAction(BluetoothAdapter.ACTION_DISCOVERY_FINISHED);
         registerReceiver(mReceiver, filter);
     }
 
@@ -180,7 +194,7 @@ public class MainActivity extends Activity {
         if (mBTService != null) {
             // Only if the state is STATE_NONE, do we know that we haven't started already
             if (mBTService.getState() == BluetoothService.STATE_NONE) {
-                // Start the Bluetooth chat services
+                // Start the Bluetooth services
                 mBTService.start();
             }
         }
@@ -274,11 +288,17 @@ public class MainActivity extends Activity {
     }
 
     public void relay() {
-        boolean success = this.mBluetoothAdapter.startDiscovery();
-        if (!success) {
-            Toast.makeText(getApplicationContext(), "Could not start Discovery.", Toast.LENGTH_LONG).show();
-        } else {
-            Toast.makeText(getApplicationContext(), "Started peering.", Toast.LENGTH_SHORT).show();
+        if (peers.size() == 0) {
+            boolean success = this.mBluetoothAdapter.startDiscovery();
+            if (!success) {
+                setStatus("Could not start Peering!");
+                Toast.makeText(getApplicationContext(), "Could not start Discovery.", Toast.LENGTH_LONG).show();
+            } else {
+                Toast.makeText(getApplicationContext(), "Peering...", Toast.LENGTH_LONG).show();
+            }
+        }
+        else {
+            initConnection();
         }
     }
 
@@ -291,14 +311,29 @@ public class MainActivity extends Activity {
             if (BluetoothDevice.ACTION_FOUND.equals(action)) {
                 // Get the BluetoothDevice object from the Intent
                 BluetoothDevice device = intent.getParcelableExtra(BluetoothDevice.EXTRA_DEVICE);
-                Log.d("[PEERING]", "Found new peer "+device.getName());
+                Log.d("[PEERING]", "Checking peer "+device.getName());
                 if (device.getBluetoothClass().getDeviceClass() == BluetoothClass.Device.PHONE_SMART) {
-                    Log.d("[PEERING]", "Found a smartphone. Initiating connection.");
-                    mBTService.connect(device);
+                    if (!peers.contains(device)) {
+                        Log.d("[PEERING]", "Found a smartphone. Updating peers.");
+                        peers.add(device);
+
+                        if (peers.size() >= 2) {
+                            mBluetoothAdapter.cancelDiscovery();
+                        }
+                    }
+                }
+            } else if (BluetoothAdapter.ACTION_DISCOVERY_FINISHED.equals(action)) {
+                if (peers.size() > 0) {
+                    Log.d("[PEERING]", "Peering done. Initiating connections.");
+                    initConnection();
                 }
             }
         }
     };
+
+    private void initConnection() {
+        mBTService.connect(peers.poll());
+    }
 
     private final void setStatus(CharSequence subTitle) {
         final ActionBar actionBar = getActionBar();
@@ -317,20 +352,15 @@ public class MainActivity extends Activity {
                             setStatus("Connected to: " + mConnectedDeviceName);
 
                             // Send everything we have
-                            Log.d(TAG, Integer.toString(pstore.packets.size()));
+                            Log.d(TAG, "Sending " + pstore.packets.size() + " packets.");
                             for(Packet p : pstore.packets){
-                            //for (int i=0; i <= pstore.packets.size(); i++) {
-                                //p = pstore.packets.peek();
-
                                 // Only send to this device if we haven't sent
                                 // the same message before
                                 if (!p.deliveredTo.contains(mConnectedDeviceAddress)) {
-                                    sendMsg(p.getPayload());
+                                    sendMsg(p.serialize());
                                     p.deliveredTo.add(mConnectedDeviceAddress);
                                 }
                             }
-
-                            // [TODO] Disconnect
 
                             break;
                         case BluetoothService.STATE_CONNECTING:
@@ -342,17 +372,31 @@ public class MainActivity extends Activity {
                             break;
                     }
                     break;
-                /*case MESSAGE_WRITE:
-                    byte[] writeBuf = (byte[]) msg.obj;
-                    // construct a string from the buffer
-                    String writeMessage = new String(writeBuf);
-                    mConversationArrayAdapter.add("Me:  " + writeMessage);
-                    break;*/
+                case MESSAGE_WRITE:
+                    // Writes are finished
+                    // Disconnect
+                    mBTService.stop();
+                    relay();
+
+                    break;
                 case MESSAGE_READ:
                     byte[] readBuf = (byte[]) msg.obj;
                     // construct a string from the valid bytes in the buffer
                     String readMessage = new String(readBuf, 0, msg.arg1);
-                    Toast.makeText(getApplicationContext(), readMessage, Toast.LENGTH_LONG).show();
+
+                    Packet packetRecieved = Packet.deSerialize(readMessage);
+                    if (packetRecieved != null) {
+                        Log.d(TAG, "Recieved packet for " + packetRecieved.getRecipient());
+                        if (packetRecieved.getRecipient().equals("phipp")) {
+                            // This message is for us! Display it!
+                            Toast.makeText(getApplicationContext(), readMessage, Toast.LENGTH_LONG).show();
+                        } else {
+                            // this packet is not for us
+                            // store it for further relay
+                            pstore.add(packetRecieved);
+                        }
+                    }
+
                     break;
                 case MESSAGE_DEVICE_NAME:
                     // save information about the connected device
