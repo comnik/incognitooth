@@ -16,6 +16,7 @@ import android.view.MenuItem;
 import android.bluetooth.BluetoothAdapter;
 import android.bluetooth.BluetoothDevice;
 import android.view.View;
+import android.view.ViewGroup;
 import android.widget.ArrayAdapter;
 import android.widget.Button;
 import android.widget.EditText;
@@ -60,8 +61,11 @@ public class MainActivity extends Activity {
     public static final int MESSAGE_WRITE = 3;
     public static final int MESSAGE_DEVICE_NAME = 4;
     public static final int MESSAGE_TOAST = 5;
+    public static final int MAX_MESSAGE_SIZE = 117;         //Max number of bytes that can be entered as a message
 
    public  TextView tv;
+    public TextView tvNumChar;
+    public EditText editTextMsg;
 
 
     @Override
@@ -71,11 +75,39 @@ public class MainActivity extends Activity {
         tv = (TextView) findViewById(R.id.recipientsListTextView);
         tv.setText("Select recipient");
 
+        //Indicator that shows how many characters were entered
+        tvNumChar = (TextView) findViewById(R.id.textViewNumChar);
+
+        //Text field to enter the message
+        editTextMsg = (EditText) findViewById(R.id.editTextMsg);
+        editTextMsg.addTextChangedListener(new android.text.TextWatcher(){
+            public void afterTextChanged(android.text.Editable s) {
+                int len = editTextMsg.getText().length();
+                if(len > MAX_MESSAGE_SIZE){
+                    editTextMsg.setText(editTextMsg.getText().subSequence(0,MAX_MESSAGE_SIZE));
+                    len = MAX_MESSAGE_SIZE;
+                    editTextMsg.setSelection(MAX_MESSAGE_SIZE);
+                }
+                tvNumChar.setText(Integer.toString(len));
+
+            }
+            public void beforeTextChanged(CharSequence s, int start, int count, int after){}
+            public void onTextChanged(CharSequence s, int start, int before, int count){}
+        });
+
+        //List that shows the available recipients
         String[] myStringArray = {"entry1","entry2","entry3"};
         ArrayAdapter<String> adapter = new ArrayAdapter<String>(this,
                 android.R.layout.simple_list_item_1, myStringArray);
         ListView listV = (ListView) findViewById(R.id.listView);
         listV.setAdapter(adapter);
+        listV.setItemsCanFocus(true);
+        ViewGroup.LayoutParams lp = (ViewGroup.LayoutParams) listV.getLayoutParams();
+        lp.height = 300;
+        listV.setLayoutParams(lp);
+
+
+
 
         pstore = new PacketStore(getSharedPreferences("PACKETS", 0));
         pstore.packets.add(new Packet("phipp", "This is fun."));
@@ -92,6 +124,8 @@ public class MainActivity extends Activity {
         IntentFilter filter = new IntentFilter(BluetoothDevice.ACTION_FOUND);
         registerReceiver(mReceiver, filter);
     }
+
+
 
     @Override
     public void onStart() {
