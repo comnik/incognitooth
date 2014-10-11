@@ -256,9 +256,10 @@ public class MainActivity extends Activity {
                             setStatus("Connected to: " + mConnectedDeviceName);
 
                             // Send everything we have
-                            Packet p;
-                            for (int i=0; i < pstore.packets.size(); i++) {
-                                p = pstore.packets.peek();
+                            Log.d(TAG, Integer.toString(pstore.packets.size()));
+                            for(Packet p : pstore.packets){
+                            //for (int i=0; i <= pstore.packets.size(); i++) {
+                                //p = pstore.packets.peek();
 
                                 // Only send to this device if we haven't sent
                                 // the same message before
