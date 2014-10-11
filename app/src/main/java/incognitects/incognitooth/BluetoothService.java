@@ -159,6 +159,14 @@ public class BluetoothService {
         mConnectedThread = new ConnectedThread(socket, socketType);
         mConnectedThread.start();
 
+        // Send the name of the connected device back to the UI Activity
+        Message msg = mHandler.obtainMessage(MainActivity.MESSAGE_DEVICE_NAME);
+        Bundle bundle = new Bundle();
+        bundle.putString(MainActivity.DEVICE_ADDRESS, device.getAddress());
+        bundle.putString(MainActivity.DEVICE_NAME, device.getName());
+        msg.setData(bundle);
+        mHandler.sendMessage(msg);
+
         setState(STATE_CONNECTED);
     }
 
