@@ -8,6 +8,7 @@ public class Packet implements Serializable {
 
     private final String recipient;
     private String payload;
+    public boolean isEncrypted;
 
     public List<String> deliveredTo = new ArrayList<String>();
 
@@ -29,6 +30,7 @@ public class Packet implements Serializable {
     public Packet(String recipient, String payload) {
         this.recipient = recipient;
         this.payload = payload;
+        this.isEncrypted = false;
     }
 
     public String getRecipient() {

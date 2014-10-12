@@ -4,11 +4,13 @@ import android.content.SharedPreferences;
 import android.util.Base64;
 import android.widget.Toast;
 
+import java.security.Key;
 import java.security.KeyFactory;
 import java.security.KeyPair;
 import java.security.KeyPairGenerator;
 import java.security.PrivateKey;
 import java.security.PublicKey;
+import java.security.spec.PKCS8EncodedKeySpec;
 import java.security.spec.X509EncodedKeySpec;
 
 import javax.crypto.Cipher;
@@ -41,6 +43,24 @@ public class EncryptUtil {
             PublicKey key = keyFactory.generatePublic(spec);
             return key;
         } catch (Exception ex) {
+            return null;
+        }
+    }
+
+    public PrivateKey getPrivateKey() {
+        String privateKey = prefs.getString(PRIVATE_KEY, null);
+        if (privateKey == null) {
+            return null;
+        }
+
+        try {
+            byte[] keyBytes = Base64.decode(privateKey.getBytes("utf-8"), Base64.DEFAULT);
+            PKCS8EncodedKeySpec keySpec = new PKCS8EncodedKeySpec(keyBytes);
+            KeyFactory keyFactory = KeyFactory.getInstance("RSA");
+            PrivateKey key = keyFactory.generatePrivate(keySpec);
+            return key;
+        } catch (Exception ex) {
+            ex.printStackTrace();
             return null;
         }
     }
@@ -90,7 +110,6 @@ public class EncryptUtil {
             // decrypt the text using the private key
             cipher.init(Cipher.DECRYPT_MODE, key);
             decryptedText = cipher.doFinal(text);
-
         } catch (Exception ex) {
             ex.printStackTrace();
         }

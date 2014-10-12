@@ -4,6 +4,7 @@ import android.content.SharedPreferences;
 import android.util.Log;
 
 import java.io.IOException;
+import java.security.PrivateKey;
 import java.security.PublicKey;
 import java.util.ArrayList;
 import java.util.LinkedList;
@@ -35,25 +36,44 @@ public class PacketStore {
             Log.e("PACKET STORE", ex.getMessage());
         }
         boolean success = prefEditor.commit();
-        Log.d("PACKET STORE", "Commit status: "+success);
     }
 
     public void load() {
         try {
             packets = (ArrayList<Packet>) ObjectSerializer.deserialize(prefs.getString(PACKETS, ObjectSerializer.serialize(new ArrayList<Packet>())));
-            Log.d("PACKET STORE", "Loaded " + packets.size() + " packets.");
+            Log.d("PACKET STORE", "Loaded  from " + prefs.getString(PACKETS, "Fuck"));
         } catch (IOException e) {
             e.printStackTrace();
         }
     }
 
     public void encrypt(Packet p) {
+        if (p.isEncrypted) {
+            return;
+        }
+
         PublicKey recipientKey = encryptor.getPublicKey();//encryptor.getPublicKey(p.getRecipient());
         if (recipientKey != null) {
-            String encryptedPayload = new String(encryptor.encrypt(p.getPayload(), recipientKey));
-            p.setPayload(encryptedPayload);
+            //String encryptedPayload = new String(encryptor.encrypt(p.getPayload(), recipientKey));
+            //p.setPayload(encryptedPayload);
+            p.isEncrypted = true;
         } else {
             Log.e("[PACKET STORE]", "PublicKey for "+p.getRecipient()+" not known!");
+        }
+    }
+
+    public void decrypt(Packet p) {
+        if (!p.isEncrypted) {
+            return;
+        }
+
+        PrivateKey myKey = encryptor.getPrivateKey();
+        if (myKey != null) {
+            //String decryptedPayload = new String(encryptor.decrypt(p.getPayload().getBytes(), myKey));
+            //p.setPayload(decryptedPayload);
+            p.isEncrypted = false;
+        } else {
+            Log.e("PACKET STORE", "PrivateKey missing.");
         }
     }
 

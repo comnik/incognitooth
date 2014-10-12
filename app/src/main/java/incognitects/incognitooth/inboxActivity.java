@@ -42,6 +42,7 @@ public class inboxActivity extends Activity {
 
         messageAdapter.clear();
         for (Packet p : pstore.packets) {
+            pstore.decrypt(p);
             messageAdapter.add(p.getPayload());
         }
     }

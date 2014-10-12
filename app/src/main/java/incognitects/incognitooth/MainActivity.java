@@ -78,6 +78,8 @@ public class MainActivity extends Activity {
     private Button openInbox;
     private Button buttonAddKey;
 
+
+    private BluetoothDevice activePeer;
     private String selectedRecipient;
 
     @Override
@@ -85,7 +87,7 @@ public class MainActivity extends Activity {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
         tv = (TextView) findViewById(R.id.recipientsListTextView);
-        tv.setText("Select recipient");
+        tv.setText("select recipient");
 
         //Indicator that shows how many characters were entered
         tvNumChar = (TextView) findViewById(R.id.textViewNumChar);
@@ -179,7 +181,7 @@ public class MainActivity extends Activity {
 
         IntentFilter filter = new IntentFilter();
         filter.addAction(BluetoothDevice.ACTION_FOUND);
-        //filter.addAction(BluetoothAdapter.ACTION_DISCOVERY_FINISHED);
+        filter.addAction(BluetoothAdapter.ACTION_DISCOVERY_FINISHED);
         registerReceiver(mReceiver, filter);
     }
 
@@ -273,7 +275,7 @@ public class MainActivity extends Activity {
         if(D) Log.d(TAG, "ensure discoverable");
         if (mBluetoothAdapter.getScanMode() != BluetoothAdapter.SCAN_MODE_CONNECTABLE_DISCOVERABLE) {
             Intent discoverableIntent = new Intent(BluetoothAdapter.ACTION_REQUEST_DISCOVERABLE);
-            discoverableIntent.putExtra(BluetoothAdapter.EXTRA_DISCOVERABLE_DURATION, 100); // 0 = ALL the time
+            discoverableIntent.putExtra(BluetoothAdapter.EXTRA_DISCOVERABLE_DURATION, 0); // 0 = ALL the time
             startActivity(discoverableIntent);
         }
     }
@@ -306,14 +308,14 @@ public class MainActivity extends Activity {
             tries++;
         }
         if (!success) {
-            Toast.makeText(this, "Not connected!", Toast.LENGTH_SHORT).show();
             return;
         }
 
         Log.d(TAG, "Attempting to send message " + message);
         // Check that there's actually something to send
         if (message.length() > 0) {
-            Toast.makeText(getApplicationContext(), "Sending msg "+message+".", Toast.LENGTH_SHORT).show();
+            setStatus("Sending....");
+            //Toast.makeText(getApplicationContext(), "Sending msg "+message+".", Toast.LENGTH_SHORT).show();
             // Get the message bytes and tell the BluetoothChatService to write
             byte[] send = message.getBytes();
             mBTService.write(send);
@@ -329,6 +331,11 @@ public class MainActivity extends Activity {
         //boolean success = this.mBluetoothAdapter.startDiscovery();
         int tries = 0;
         boolean success = false;
+
+        if (mBTService.getState() > 1){
+            return;
+        }
+
         if (mBluetoothAdapter.isDiscovering()) {
             mBluetoothAdapter.cancelDiscovery();
         }
@@ -362,14 +369,12 @@ public class MainActivity extends Activity {
                 Log.d("[PEERING]", "Checking peer "+device.getName());
                 if (device.getBluetoothClass().getDeviceClass() == BluetoothClass.Device.PHONE_SMART) {
                     Log.d("[PEERING]", "Found a smartphone. Updating peers.");
-                    mBTService.connect(device);
                     mBluetoothAdapter.cancelDiscovery();
+                    activePeer = device;
+                    mBTService.connect(device);
                 }
             } else if (BluetoothAdapter.ACTION_DISCOVERY_FINISHED.equals(action)) {
-                if (peers.size() > 0) {
-                    Log.d("[PEERING]", "Peering done. Initiating connections.");
-                    //initConnection();
-                }
+                relay();
             }
         }
     };
@@ -404,7 +409,6 @@ public class MainActivity extends Activity {
                                 //    p.deliveredTo.add(mConnectedDeviceAddress);
                                // }
                             }
-
                             break;
                         case BluetoothService.STATE_CONNECTING:
                             setStatus("Connecting...");
@@ -420,8 +424,9 @@ public class MainActivity extends Activity {
                 case MESSAGE_WRITE:
                     // Writes are finished
                     // Disconnect
-                    mBTService.stop();
-                    relay();
+                    //mBTService.stop();
+                    //activePeer = null;
+                    //relay();
 
                     break;
                 case MESSAGE_READ:
