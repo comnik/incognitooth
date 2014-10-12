@@ -36,7 +36,6 @@ public class PacketStore {
         }
         boolean success = prefEditor.commit();
         Log.d("PACKET STORE", "Commit status: "+success);
-        load();
     }
 
     public void load() {
@@ -48,16 +47,19 @@ public class PacketStore {
         }
     }
 
-    public void add(Packet p) {
-        Log.d("[PACKET STORE]", "Ingesting new packet for " + p.getRecipient());
+    public void encrypt(Packet p) {
         PublicKey recipientKey = encryptor.getPublicKey();//encryptor.getPublicKey(p.getRecipient());
         if (recipientKey != null) {
             String encryptedPayload = new String(encryptor.encrypt(p.getPayload(), recipientKey));
             p.setPayload(encryptedPayload);
-            this.packets.add(p);
         } else {
             Log.e("[PACKET STORE]", "PublicKey for "+p.getRecipient()+" not known!");
         }
+    }
+
+    public void add(Packet p) {
+        Log.d("[PACKET STORE]", "Ingesting new packet for " + p.getRecipient());
+        this.packets.add(p);
     }
 
 }

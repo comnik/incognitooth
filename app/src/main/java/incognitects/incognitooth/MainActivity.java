@@ -28,12 +28,13 @@ import android.widget.Toast;
 import java.util.ArrayList;
 import java.util.LinkedList;
 import java.util.List;
+import java.util.Map;
 import java.util.Queue;
 
 
 public class MainActivity extends Activity {
     // Debugging
-    private static final String TAG = "Incognitooth";
+    private static final String TAG = "incognitooth";
     private static final boolean D = true;
 
     private Queue<BluetoothDevice> peers = new LinkedList<BluetoothDevice>();
@@ -68,11 +69,14 @@ public class MainActivity extends Activity {
     public static final int MESSAGE_TOAST = 5;
     public static final int MAX_MESSAGE_SIZE = 117;         //Max number of bytes that can be entered as a message
 
+    private ArrayAdapter<String> keysAdapter;
+
     public TextView tv;
     public TextView tvNumChar;
     public EditText editTextMsg;
     public Button buttonSend;
     private Button openInbox;
+    private Button buttonAddKey;
 
     private String selectedRecipient;
 
@@ -88,29 +92,32 @@ public class MainActivity extends Activity {
 
         //Text field to enter the message
         editTextMsg = (EditText) findViewById(R.id.editTextMsg);
-        editTextMsg.addTextChangedListener(new android.text.TextWatcher(){
+        editTextMsg.addTextChangedListener(new android.text.TextWatcher() {
             public void afterTextChanged(android.text.Editable s) {
                 int len = editTextMsg.getText().length();
-                if(len > MAX_MESSAGE_SIZE){
-                    editTextMsg.setText(editTextMsg.getText().subSequence(0,MAX_MESSAGE_SIZE));
+                if (len > MAX_MESSAGE_SIZE) {
+                    editTextMsg.setText(editTextMsg.getText().subSequence(0, MAX_MESSAGE_SIZE));
                     len = MAX_MESSAGE_SIZE;
                     editTextMsg.setSelection(MAX_MESSAGE_SIZE);
                 }
                 tvNumChar.setText(Integer.toString(len));
 
             }
-            public void beforeTextChanged(CharSequence s, int start, int count, int after){}
-            public void onTextChanged(CharSequence s, int start, int before, int count){}
+
+            public void beforeTextChanged(CharSequence s, int start, int count, int after) {
+            }
+
+            public void onTextChanged(CharSequence s, int start, int before, int count) {
+            }
         });
 
         //List that shows the available recipients
-        String[] myStringArray = {"entry1","entry2","entry3"};
-        ArrayAdapter<String> adapter = new ArrayAdapter<String>(this,
-                android.R.layout.simple_list_item_1, myStringArray);
+        keysAdapter = new ArrayAdapter<String>(this, android.R.layout.simple_list_item_1);
 
         ListView listV = (ListView) findViewById(R.id.listView);
-        listV.setAdapter(adapter);
+        listV.setAdapter(keysAdapter);
         listV.setItemsCanFocus(true);
+
         ViewGroup.LayoutParams lp = (ViewGroup.LayoutParams) listV.getLayoutParams();
         lp.height = 300;
         listV.setLayoutParams(lp);
@@ -129,7 +136,9 @@ public class MainActivity extends Activity {
         buttonSend.setOnClickListener(new View.OnClickListener() {
             public void onClick(View v) {
                 // Perform action on click
-                pstore.add(new Packet(selectedRecipient, editTextMsg.getText().toString()));
+                Packet newPacket = new Packet(selectedRecipient, editTextMsg.getText().toString());
+                pstore.encrypt(newPacket);
+                pstore.add(newPacket);
             }
         });
 
@@ -137,6 +146,14 @@ public class MainActivity extends Activity {
         openInbox.setOnClickListener(new View.OnClickListener() {
             public void onClick(View v) {
                 Intent i = new Intent(getApplicationContext(), inboxActivity.class);
+                startActivity(i);
+            }
+        });
+
+        buttonAddKey = (Button) findViewById(R.id.buttonAddKey);
+        buttonAddKey.setOnClickListener(new View.OnClickListener() {
+            public void onClick(View v) {
+                Intent i = new Intent(getApplicationContext(), AddKey.class);
                 startActivity(i);
             }
         });
@@ -149,8 +166,8 @@ public class MainActivity extends Activity {
         }
 
         pstore = new PacketStore(getSharedPreferences("PACKETS", 0), encryptUtil);
-        pstore.add(new Packet("phipp", "This is fun."));
-        pstore.add(new Packet("etienned", "Hi!"));
+        //pstore.add(new Packet("phipp", "This is fun."));
+        //pstore.add(new Packet("etienned", "Hi!"));
 
         // Get local Bluetooth adapter
         mBluetoothAdapter = BluetoothAdapter.getDefaultAdapter();
@@ -162,7 +179,7 @@ public class MainActivity extends Activity {
 
         IntentFilter filter = new IntentFilter();
         filter.addAction(BluetoothDevice.ACTION_FOUND);
-        filter.addAction(BluetoothAdapter.ACTION_DISCOVERY_FINISHED);
+        //filter.addAction(BluetoothAdapter.ACTION_DISCOVERY_FINISHED);
         registerReceiver(mReceiver, filter);
     }
 
@@ -187,6 +204,13 @@ public class MainActivity extends Activity {
         if(D) Log.e(TAG, "+ ON RESUME +");
 
         pstore.load();
+
+        keysAdapter.clear();
+        SharedPreferences prefs = getSharedPreferences("NICK_KEYSTORE", 0);
+        Map<String, ?> keys = prefs.getAll();
+        for (Map.Entry<String, ?> entry : keys.entrySet()) {
+            keysAdapter.add(entry.getKey());
+        }
 
         // Performing this check in onResume() covers the case in which BT was
         // not enabled during onStart(), so we were paused to enable it...
@@ -249,7 +273,7 @@ public class MainActivity extends Activity {
         if(D) Log.d(TAG, "ensure discoverable");
         if (mBluetoothAdapter.getScanMode() != BluetoothAdapter.SCAN_MODE_CONNECTABLE_DISCOVERABLE) {
             Intent discoverableIntent = new Intent(BluetoothAdapter.ACTION_REQUEST_DISCOVERABLE);
-            discoverableIntent.putExtra(BluetoothAdapter.EXTRA_DISCOVERABLE_DURATION, 0); // 0 = ALL the time
+            discoverableIntent.putExtra(BluetoothAdapter.EXTRA_DISCOVERABLE_DURATION, 100); // 0 = ALL the time
             startActivity(discoverableIntent);
         }
     }
@@ -275,11 +299,18 @@ public class MainActivity extends Activity {
 
     private void sendMsg(String message) {
         // Check that we're actually connected before trying anything
-        if (mBTService.getState() != BluetoothService.STATE_CONNECTED) {
+        int tries = 0;
+        boolean success = false;
+        while(!success && tries < 10 ){
+            success = (mBTService.getState() == BluetoothService.STATE_CONNECTED);
+            tries++;
+        }
+        if (!success) {
             Toast.makeText(this, "Not connected!", Toast.LENGTH_SHORT).show();
             return;
         }
 
+        Log.d(TAG, "Attempting to send message " + message);
         // Check that there's actually something to send
         if (message.length() > 0) {
             Toast.makeText(getApplicationContext(), "Sending msg "+message+".", Toast.LENGTH_SHORT).show();
@@ -294,18 +325,29 @@ public class MainActivity extends Activity {
     }
 
     public void relay() {
-        if (peers.size() == 0) {
-            boolean success = this.mBluetoothAdapter.startDiscovery();
-            if (!success) {
-                setStatus("Could not start Peering!");
-                Toast.makeText(getApplicationContext(), "Could not start Discovery.", Toast.LENGTH_LONG).show();
-            } else {
-                Toast.makeText(getApplicationContext(), "Peering...", Toast.LENGTH_LONG).show();
-            }
+        //if (peers.size() == 0) {
+        //boolean success = this.mBluetoothAdapter.startDiscovery();
+        int tries = 0;
+        boolean success = false;
+        if (mBluetoothAdapter.isDiscovering()) {
+            mBluetoothAdapter.cancelDiscovery();
         }
-        else {
-            initConnection();
+        while (!success && tries < 5) {
+            success = mBluetoothAdapter.startDiscovery();
+            tries++;
         }
+
+        if (!success) {
+            setStatus("Could not start Peering!");
+            Toast.makeText(getApplicationContext(), "Could not start Discovery.", Toast.LENGTH_LONG).show();
+        } else {
+            Toast.makeText(getApplicationContext(), "Peering...", Toast.LENGTH_LONG).show();
+        }
+
+        //}
+        //else {
+        //    initConnection();
+        //}
     }
 
     // Create a BroadcastReceiver for ACTION_FOUND
@@ -319,19 +361,14 @@ public class MainActivity extends Activity {
                 BluetoothDevice device = intent.getParcelableExtra(BluetoothDevice.EXTRA_DEVICE);
                 Log.d("[PEERING]", "Checking peer "+device.getName());
                 if (device.getBluetoothClass().getDeviceClass() == BluetoothClass.Device.PHONE_SMART) {
-                    if (!peers.contains(device)) {
-                        Log.d("[PEERING]", "Found a smartphone. Updating peers.");
-                        peers.add(device);
-
-                        if (peers.size() >= 2) {
-                            mBluetoothAdapter.cancelDiscovery();
-                        }
-                    }
+                    Log.d("[PEERING]", "Found a smartphone. Updating peers.");
+                    mBTService.connect(device);
+                    mBluetoothAdapter.cancelDiscovery();
                 }
             } else if (BluetoothAdapter.ACTION_DISCOVERY_FINISHED.equals(action)) {
                 if (peers.size() > 0) {
                     Log.d("[PEERING]", "Peering done. Initiating connections.");
-                    initConnection();
+                    //initConnection();
                 }
             }
         }
@@ -352,7 +389,7 @@ public class MainActivity extends Activity {
         public void handleMessage(Message msg) {
             switch (msg.what) {
                 case MESSAGE_STATE_CHANGE:
-                    if(D) Log.i(TAG, "MESSAGE_STATE_CHANGE: " + msg.arg1);
+                    //if(D) Log.i(TAG, "MESSAGE_STATE_CHANGE: " + msg.arg1);
                     switch (msg.arg1) {
                         case BluetoothService.STATE_CONNECTED:
                             setStatus("Connected to: " + mConnectedDeviceName);
@@ -362,10 +399,10 @@ public class MainActivity extends Activity {
                             for(Packet p : pstore.packets){
                                 // Only send to this device if we haven't sent
                                 // the same message before
-                                if (!p.deliveredTo.contains(mConnectedDeviceAddress)) {
-                                    sendMsg(p.serialize());
-                                    p.deliveredTo.add(mConnectedDeviceAddress);
-                                }
+                                //if (!p.deliveredTo.contains(mConnectedDeviceAddress)) {
+                                sendMsg(p.serialize());
+                                //    p.deliveredTo.add(mConnectedDeviceAddress);
+                               // }
                             }
 
                             break;
@@ -373,6 +410,8 @@ public class MainActivity extends Activity {
                             setStatus("Connecting...");
                             break;
                         case BluetoothService.STATE_LISTEN:
+                            setStatus("Listening");
+                            break;
                         case BluetoothService.STATE_NONE:
                             setStatus("Not connected!");
                             break;
@@ -396,11 +435,10 @@ public class MainActivity extends Activity {
                         if (packetRecieved.getRecipient().equals("phipp")) {
                             // This message is for us! Display it!
                             Toast.makeText(getApplicationContext(), readMessage, Toast.LENGTH_LONG).show();
-                        } else {
-                            // this packet is not for us
-                            // store it for further relay
-                            pstore.add(packetRecieved);
                         }
+                        pstore.add(packetRecieved);
+                    } else {
+                        Log.e(TAG, "RECIEVED A NULL PACKET!!!!");
                     }
 
                     break;

@@ -40,7 +40,7 @@ import android.util.Log;
 public class BluetoothService {
     // Debugging
     private static final String TAG = "[BLUETOOTH SERVICE]";
-    private static final boolean D = true;
+    private static final boolean D = false;
 
     // Name for the SDP record when creating server socket
     private static final String NAME_SECURE = "BluetoothChatSecure";

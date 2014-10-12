@@ -18,7 +18,7 @@ public class Packet implements Serializable {
         try {
             parsedPacket = new Packet(parsedData[0], parsedData[1]);
         } catch (Exception ex) {
-            //
+            ex.printStackTrace();
         }
 
         return parsedPacket;

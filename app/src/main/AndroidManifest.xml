@@ -27,6 +27,10 @@
             android:name=".inboxActivity"
             android:label="@string/title_activity_inbox" >
         </activity>
+        <activity
+            android:name=".AddKey"
+            android:label="@string/title_activity_add_key" >
+        </activity>
     </application>
 
 </manifest>
